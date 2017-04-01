@@ -1,5 +1,6 @@
 package com.github.jonatabecker;
 
+import com.github.jonatabecker.commons.Bullet;
 import com.github.jonatabecker.commons.Player;
 import com.github.jonatabecker.commons.World;
 import java.util.ArrayList;
@@ -27,6 +28,24 @@ public class WorldServer {
     
     public void removePlayer(Player player) {
         world.removePlayer(player);
+        fireEvent();
+    }
+    
+    public List<Player> getPlayers() {
+        return new ArrayList<>(world.getPlayers());
+    }
+
+    public void addBullet(Bullet bullet) {
+        world.addBullet(bullet);
+        fireEvent();
+    }
+    
+    public List<Bullet> getBullets() {
+        return world.getBullets();
+    }
+    
+    public void removeBullet(Bullet bullet) {
+        world.removeBullet(bullet);
         fireEvent();
     }
 
