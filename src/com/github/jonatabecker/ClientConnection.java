@@ -11,6 +11,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  *
@@ -18,7 +19,7 @@ import java.util.Map;
  */
 public class ClientConnection implements Commands {
 
-    public static final int SPEED = 3;
+    public static final int SPEED = 5;
     public static final int MIN = 10;
     public static final int LIMIT = 725;
 
@@ -47,50 +48,25 @@ public class ClientConnection implements Commands {
                     Thread.sleep(30);
 
                     if (!worldServer.getBullets().isEmpty()) {
-                        worldServer.getBullets().forEach((e) -> {
-                            int val = (e.getPos() == Player.POS_RIGHT) ? SPEED * -2 : SPEED * 2;
-                            e.setX(e.getX() + val);
-                            if (e.getX() > 1000 || isHit(e.getX(), e.getY())) {
-                                worldServer.removeBullet(e);
-                            }
-                        });
-                        worldServer.fireEvent();
+                        commandBullets();
                     }
-
+                    if (player.isDead()) {
+                        continue;
+                    }
                     if (commands.get(BULLET)) {
-                        worldServer.addBullet(new Bullet(player.getPos(), player.isPosRight() ? player.getX() : player.getX() + Player.WIDTH, player.getY() + 30));
-                        worldServer.fireEvent();
+                        commandBullet();
                         continue;
                     }
                     if (commands.get(PUNCH)) {
-                        player.setState(Player.PUNCHING);
-                        worldServer.fireEvent();
+                        commandPunch();
                         continue;
                     }
                     if (commands.get(RIGHT)) {
-                        int pos = player.getX() + SPEED;
-                        if (pos > LIMIT) {
-                            pos = LIMIT;
-                        }
-                        if (isHit(pos + Player.WIDTH, player.getY())) {
-                            pos = player.getX();
-                        }
-                        player.setX(pos);
-                        player.setState(Player.WALKING);
-                        worldServer.fireEvent();
+                        commandRight();
                         continue;
                     }
                     if (commands.get(LEFT)) {
-                        int pos = player.getX() - SPEED;
-                        player.setState(Player.WALKING);
-                        if (pos < MIN) {
-                            pos = MIN;
-                        }
-                        if (isHit(pos, player.getX())) {
-                            pos = player.getX();
-                        }
-                        player.setX(pos);
-                        worldServer.fireEvent();
+                        commandLeft();
                         continue;
                     }
                     if (!player.isWaiting()) {
@@ -106,12 +82,91 @@ public class ClientConnection implements Commands {
         th2.start();
     }
 
-    private boolean isHit(int x, int y) {
-        return worldServer.getPlayers().stream().anyMatch((p) -> {
-            return x >= p.getX() && x <= p.getX() + Player.WIDTH;
+    private void commandBullets() {
+        worldServer.getBullets().stream().filter((b) -> {
+            return player.equals(b.getPlayer());
+        }).forEach((e) -> {
+            int val = (e.getPos() == Player.POS_RIGHT) ? 8 * -1 : 8;
+            e.setX(e.getX() + val);
+            if (e.getX() > 1000) {
+                worldServer.removeBullet(e);
+            } else {
+                Player hited = getHitedPlayer(e.getX(), e.getY());
+                if (hited != null) {
+                    hited.hit();
+                    worldServer.removeBullet(e);
+                }
+            }
         });
+        worldServer.fireEvent();
     }
-    
+
+    private void commandBullet() {
+        worldServer.addBullet(new Bullet(player, player.isPosRight() ? player.getX() : player.getX() + Player.WIDTH, player.getY() + 30));
+        worldServer.fireEvent();
+    }
+
+    private void commandPunch() {
+        player.setState(Player.PUNCHING);
+        int x = player.getX();
+        int y = player.getY();
+        if (player.isPosRight()) {
+            x -= Player.WIDTH;
+        } else {
+            x += Player.WIDTH + 10;
+        }
+        Player hited = getHitedPlayer(x, y);
+        if (hited != null) {
+            hited.hitPunch();
+            System.out.println(hited.getLivePercent());
+        }
+        worldServer.fireEvent();
+    }
+
+    private void commandRight() {
+        int pos = player.getX() + SPEED;
+        if (pos > LIMIT) {
+            pos = LIMIT;
+        }
+        if (isHit(pos + Player.WIDTH, player.getY())) {
+            pos = player.getX();
+        }
+        player.setX(pos);
+        player.setState(Player.WALKING);
+        worldServer.fireEvent();
+    }
+
+    private void commandLeft() {
+        int pos = player.getX() - SPEED;
+        player.setState(Player.WALKING);
+        if (pos < MIN) {
+            pos = MIN;
+        }
+        if (isHit(pos, player.getX())) {
+            pos = player.getX();
+        }
+        player.setX(pos);
+        worldServer.fireEvent();
+    }
+
+    private boolean isHit(int x, int y) {
+        return getHitedPlayer(x, y) != null;
+    }
+
+    private Player getHitedPlayer(int x, int y) {
+        try {
+            Player pl = worldServer.getPlayers().stream().filter((p) -> {
+                return x >= p.getX() && x <= p.getX() + Player.WIDTH;
+            }).findFirst().get();
+            if (pl.equals(player)) {
+                return null;
+            }
+            return pl;
+        } catch (NoSuchElementException e) {
+            return null;
+        }
+    }
+
     private void playerEventIn(BufferedReader in) throws IOException {
         String command;
         while (!(command = in.readLine()).equals("exit")) {

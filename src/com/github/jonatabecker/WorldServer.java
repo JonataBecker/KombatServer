@@ -22,34 +22,34 @@ public class WorldServer {
     }
 
     public void addPlayer(Player player) {
-        world.addPlayer(player);
+        getWorld().addPlayer(player);
         fireEvent();
     }
     
     public void removePlayer(Player player) {
-        world.removePlayer(player);
+        getWorld().removePlayer(player);
         fireEvent();
     }
     
     public List<Player> getPlayers() {
-        return new ArrayList<>(world.getPlayers());
+        return new ArrayList<>(getWorld().getPlayers());
     }
 
     public void addBullet(Bullet bullet) {
-        world.addBullet(bullet);
+        getWorld().addBullet(bullet);
         fireEvent();
     }
     
     public List<Bullet> getBullets() {
-        return world.getBullets();
+        return getWorld().getBullets();
     }
     
     public void removeBullet(Bullet bullet) {
-        world.removeBullet(bullet);
+        getWorld().removeBullet(bullet);
         fireEvent();
     }
 
-    public World getWorld() {
+    public synchronized World getWorld() {
         return world;
     }
 
