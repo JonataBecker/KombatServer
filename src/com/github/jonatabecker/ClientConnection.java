@@ -9,11 +9,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -57,6 +59,9 @@ public class ClientConnection implements Commands {
                     if (player.isDead()) {
                         continue;
                     }
+                    if (player.isUp()) {
+                        continue;
+                    }
                     if (commands.get(BULLET)) {
                         commandBullet();
                         continue;
@@ -77,7 +82,7 @@ public class ClientConnection implements Commands {
                         commandDown();
                         continue;
                     }
-                    if (commands.get(UP) || player.isUp()) {
+                    if (commands.get(UP)) {
                         commandUp();
                         continue;
                     }
@@ -174,27 +179,44 @@ public class ClientConnection implements Commands {
         Thread th = new Thread(() -> {
             double positionX = player.getX();
             double positionY = player.getY();
-            double velocityX = 4.0;
-            double velocityY = -20.5;
+            double velocityX = 5.0;
+            double velocityY = -15.5;
             double gravity = 1;
             int originalY = player.getY();
-
+            if (player.isPosRight()) {
+                velocityX *= -1;
+            }
             while (true) {
                 try {
                     velocityY += gravity;
                     positionY += velocityY;
                     positionX += velocityX;
-
-//                    if (positionY < 50.0) {
-//                        velocityY = 0.0;
-//                    }
-
                     if (velocityY > 0 && positionY >= originalY) {
                         player.setX((int) positionX);
                         player.setY(originalY);
                         player.setState(Player.WAITING);
+                        List<Player> st = new ArrayList<>(worldServer.getPlayers()).stream().filter((p) -> {
+                            return p.getX() < player.getX();
+                        }).collect(Collectors.toList());
+                        if (st.size() > 0) {
+                            player.setPos(Player.POS_RIGHT);
+                            st.forEach((p) -> {
+                                p.setPos(Player.POS_LEFT);
+                            });
+                        } else {
+                            worldServer.getPlayers().forEach((p) -> {
+                                p.setPos(Player.POS_RIGHT);
+                            });
+                            player.setPos(Player.POS_LEFT);
+                        }
                         worldServer.fireEvent();
                         break;
+                    }
+                    if (positionX < MIN) {
+                        positionX = MIN;
+                    }
+                    if (positionX > LIMIT) {
+                        positionX = LIMIT;
                     }
                     player.setX((int) positionX);
                     player.setY((int) positionY);
@@ -204,7 +226,6 @@ public class ClientConnection implements Commands {
                     ex.printStackTrace();
                 }
             }
-
         });
         th.start();
     }
@@ -216,6 +237,8 @@ public class ClientConnection implements Commands {
     private Player getHitedPlayer(int x, int y) {
         try {
             Player pl = worldServer.getPlayers().stream().filter((p) -> {
+                return !p.isDead();
+            }).filter((p) -> {
                 return x >= p.getX() && x <= p.getX() + Player.WIDTH;
             }).findFirst().get();
             if (pl.equals(player)) {
