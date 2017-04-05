@@ -12,6 +12,8 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -39,6 +41,8 @@ public class ClientConnection implements Commands {
         this.commands.put(RIGHT, Boolean.FALSE);
         this.commands.put(PUNCH, Boolean.FALSE);
         this.commands.put(BULLET, Boolean.FALSE);
+        this.commands.put(UP, Boolean.FALSE);
+        this.commands.put(DOWN, Boolean.FALSE);
     }
 
     private void playerEventOut() {
@@ -67,6 +71,14 @@ public class ClientConnection implements Commands {
                     }
                     if (commands.get(LEFT)) {
                         commandLeft();
+                        continue;
+                    }
+                    if (commands.get(DOWN)) {
+                        commandDown();
+                        continue;
+                    }
+                    if (commands.get(UP) || player.isUp()) {
+                        commandUp();
                         continue;
                     }
                     if (!player.isWaiting()) {
@@ -147,6 +159,54 @@ public class ClientConnection implements Commands {
         }
         player.setX(pos);
         worldServer.fireEvent();
+    }
+
+    private void commandDown() {
+        player.setState(Player.DOWN);
+        worldServer.fireEvent();
+    }
+
+    private void commandUp() {
+        if (player.isUp()) {
+            return;
+        }
+        player.setState(Player.UP);
+        Thread th = new Thread(() -> {
+            double positionX = player.getX();
+            double positionY = player.getY();
+            double velocityX = 4.0;
+            double velocityY = -20.5;
+            double gravity = 1;
+            int originalY = player.getY();
+
+            while (true) {
+                try {
+                    velocityY += gravity;
+                    positionY += velocityY;
+                    positionX += velocityX;
+
+//                    if (positionY < 50.0) {
+//                        velocityY = 0.0;
+//                    }
+
+                    if (velocityY > 0 && positionY >= originalY) {
+                        player.setX((int) positionX);
+                        player.setY(originalY);
+                        player.setState(Player.WAITING);
+                        worldServer.fireEvent();
+                        break;
+                    }
+                    player.setX((int) positionX);
+                    player.setY((int) positionY);
+                    worldServer.fireEvent();
+                    Thread.sleep(30);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+        });
+        th.start();
     }
 
     private boolean isHit(int x, int y) {
