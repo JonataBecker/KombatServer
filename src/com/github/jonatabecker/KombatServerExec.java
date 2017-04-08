@@ -10,18 +10,22 @@ import java.net.Socket;
 public class KombatServerExec {
 
     private final WorldServer worldServer;
-
+    private final ClientsController sendConnection;
+    
     public KombatServerExec() {
         this.worldServer = new WorldServer();
+        this.sendConnection = new ClientsController(worldServer);
     }
 
     public void waitForPlayer() {
         try {
+            sendConnection.exec();
             ServerSocket ss = new ServerSocket(8880);
             while (true) {
                 Socket s = ss.accept();
                 ClientConnection connection = new ClientConnection(worldServer, s);
                 connection.run();
+                sendConnection.addConnection(connection);
             }
         } catch (Exception e) {
             e.printStackTrace();
